@@ -1,12 +1,12 @@
 import {ISubmission} from './models'
 
-const formatCaptionLine = (text: string | undefined, tag: '**' | '__') => {
+const formatCaptionLine = (text: string | undefined, tag: '*' | '_') => {
   return (text && `${tag}${text}${tag}\n`) || ''
 }
 
 export const formatCaption = (submission: Omit<ISubmission, 'date'>) => {
-  const name = formatCaptionLine(submission.name, '**')
-  const description = formatCaptionLine(submission.description, '__')
+  const name = formatCaptionLine(submission.name, '*')
+  const description = formatCaptionLine(submission.description, '_')
   return `${name}${description}`
 }
 

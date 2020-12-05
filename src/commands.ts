@@ -170,7 +170,9 @@ const handlers: Record<Command, Handler> = {
         }
       }
       return {
-        message: `${user.submissions.map(s => formatCaption(s)).join('\n')}`,
+        message: `${user.submissions
+          .map(s => `> ${formatCaption(s)}`)
+          .join('\n')}`,
       }
     },
   },
