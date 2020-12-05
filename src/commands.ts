@@ -2,6 +2,7 @@ import TelegramBot, {
   Message,
   SendMessageOptions,
   Metadata,
+  InputMedia,
 } from 'node-telegram-bot-api'
 import {
   findOrCreateUser,
@@ -29,6 +30,7 @@ type Handler = {
     message: Message,
     metadata: Metadata
   ) => Promise<{
+    media?: InputMedia[]
     message: string
     messageOptions?: SendMessageOptions
   }>
@@ -57,6 +59,7 @@ const buttons: Record<Command, string> = {
 }
 
 const toMessageOptions = (commands: Command[][]): SendMessageOptions => ({
+  parse_mode: 'Markdown',
   reply_markup: {
     keyboard: commands.map(row =>
       row.map(command => ({text: buttons[command]}))
@@ -112,14 +115,35 @@ const handlers: Record<Command, Handler> = {
     reply: async telegramId => {
       // TODO: Send the review also and validate the fields.
       const submission = await getCurrentSubmission(telegramId)
-      return {
-        message: `Name: ${submission.name}
-        Description: ${submission.description}
-        Media: ${submission.media.length}
-          
-        If you like how it looks, go on and press Submit ✅ We will also repost this to the Grandma Chat 🤶🎅🍪`,
-        messageOptions: toMessageOptions([['back', 'submit']]),
-      }
+
+      const name = (submission.name && `**${submission.name}**\n`) || ''
+      const description =
+        (submission.description && `__${submission.description}__\n`) || ''
+      const media = submission.media.length
+        ? submission.media.map(m => ({
+            type: m.mediaType,
+            media: m.telegramId,
+          }))
+        : undefined
+
+      const errors = [
+        !name && 'give your creation a name 🍪',
+        !media && 'add some pictures 🖼️',
+      ]
+        .filter(e => e)
+        .join(' and ')
+      const errorText = errors.length ? `Please, ${errors}` : undefined
+
+      return errorText
+        ? {
+            media,
+            message: `${name}${description}\n${errorText}`,
+          }
+        : {
+            media,
+            message: `${name}${description}\nIf you like how it looks, go on and press Submit ✅ We will also repost this to the Grandma Chat 🤶🎅🍪`,
+            messageOptions: toMessageOptions([['back', 'submit']]),
+          }
     },
   },
   submit: {
@@ -172,6 +196,11 @@ export const processMessage = async (
     const [command, handler] = recognisedCommand
     const reply = await handler.reply(telegramUserId, message, metadata)
 
+    if (reply.media) {
+      await bot.sendMediaGroup(message.chat.id, reply.media, {
+        disable_notification: true,
+      })
+    }
     await bot.sendMessage(message.chat.id, reply.message, {
       ...defaultMessageOptions,
       ...(reply.messageOptions ?? {}),
@@ -188,7 +217,7 @@ export const processMessage = async (
     await insertMedia(telegramUserId, {
       telegramId: photo.file_id,
       telegramMediaGroupId: message.media_group_id,
-      mediaType: 'video',
+      mediaType: 'photo',
       date: new Date(message.date * 1000),
     })
   }
@@ -231,8 +260,4 @@ export const processMessage = async (
       defaultMessageOptions
     )
   }
-
-  /*await bot.sendMediaGroup(message.chat.id, [{type: 'photo', media: photoId}], {
-    disable_notification: true,
-  })*/
 }
