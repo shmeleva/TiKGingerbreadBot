@@ -91,7 +91,7 @@ const handlers: Record<Command, Handler> = {
   },
   editDescription: {
     reply: async () => ({
-      message: 'OK. Send me the new description. Keep it brief 🙌',
+      message: 'OK. Send me the new description 🙌',
     }),
     nextMessageType: ['text'],
     nextReply: async (telegramId, message) => {
@@ -103,7 +103,8 @@ const handlers: Record<Command, Handler> = {
   },
   uploadPictures: {
     reply: async () => ({
-      message: 'OK. Send me the new pictures. It can be one or more pictures.',
+      message:
+        'OK. Send me the new pictures. If you want to add more than one picture, send them all at once in a single message. Videos are also fine 🎬',
     }),
     nextMessageType: ['photo', 'video'],
     nextReply: async (telegramId, message) => {
