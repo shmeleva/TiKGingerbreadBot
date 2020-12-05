@@ -12,7 +12,6 @@ export const findOrCreateUser = async (
       draft: {media: []},
       submissions: [],
     }))
-  console.log(user)
   return user
 }
 

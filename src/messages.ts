@@ -10,6 +10,14 @@ export const formatCaption = (submission: Omit<ISubmission, 'date'>) => {
   return `${name}${description}`
 }
 
+export const formatMedia = (submission: Omit<ISubmission, 'date'>) =>
+  submission.media.length
+    ? submission.media.map(m => ({
+        type: m.mediaType,
+        media: m.telegramId,
+      }))
+    : undefined
+
 export const formatErrorMessage = (submission: Omit<ISubmission, 'date'>) => {
   const {name, media} = submission
   const errors = [

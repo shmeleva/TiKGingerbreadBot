@@ -14,7 +14,10 @@ import {
   insertMedia,
   insertSubmission,
 } from './queues'
-import {formatErrorMessage, formatCaption} from './messages'
+import {formatErrorMessage, formatCaption, formatMedia} from './messages'
+
+require('dotenv').config()
+const grandmaChatId = `@${process.env.GRANDMA_CHAT_ID}`
 
 export type Command =
   | 'editName'
@@ -29,6 +32,7 @@ type Handler = {
   after?: Command
   reply: (
     telegramId: number,
+    bot: TelegramBot,
     message: Message,
     metadata: Metadata
   ) => Promise<{
@@ -39,6 +43,7 @@ type Handler = {
   nextMessageType?: string[]
   nextReply?: (
     telegramId: number,
+    bot: TelegramBot,
     message: Message,
     metadata: Metadata
   ) => Promise<
@@ -82,7 +87,7 @@ const handlers: Record<Command, Handler> = {
       message: 'OK. Send me the new name for your creation 🙌',
     }),
     nextMessageType: ['text'],
-    nextReply: async (telegramId, message) => {
+    nextReply: async (telegramId, _, message) => {
       await updateDraftName(telegramId, message.text)
       return {
         message: '👌 The name is now updated!',
@@ -94,7 +99,7 @@ const handlers: Record<Command, Handler> = {
       message: 'OK. Send me the new description 🙌',
     }),
     nextMessageType: ['text'],
-    nextReply: async (telegramId, message) => {
+    nextReply: async (telegramId, _, message) => {
       await updateDraftDescription(telegramId, message.text)
       return {
         message: '👌 The description is now updated!',
@@ -107,7 +112,7 @@ const handlers: Record<Command, Handler> = {
         'OK. Send me the new pictures. If you want to add more than one picture, send them all at once in a single message. Videos are also fine 🎬',
     }),
     nextMessageType: ['photo', 'video'],
-    nextReply: async (telegramId, message) => {
+    nextReply: async (telegramId, _, message) => {
       await updateDraftMediaDate(telegramId, new Date(message.date * 1000))
       return {
         message: '👌 Looking good! The pictures are now updated.',
@@ -119,12 +124,7 @@ const handlers: Record<Command, Handler> = {
       const submission = await getCurrentSubmission(telegramId)
 
       const caption = formatCaption(submission)
-      const media = submission.media.length
-        ? submission.media.map(m => ({
-            type: m.mediaType,
-            media: m.telegramId,
-          }))
-        : undefined
+      const media = formatMedia(submission)
       const error = formatErrorMessage(submission)
 
       return error
@@ -141,7 +141,7 @@ const handlers: Record<Command, Handler> = {
   },
   submit: {
     after: 'reviewAndSubmit',
-    reply: async telegramId => {
+    reply: async (telegramId, bot) => {
       const submission = await getCurrentSubmission(telegramId)
       const error = formatErrorMessage(submission)
       if (error) {
@@ -149,8 +149,19 @@ const handlers: Record<Command, Handler> = {
           message: error,
         }
       }
-      // TODO also post to the chat
+
       await insertSubmission(telegramId, {...submission, date: new Date()})
+
+      await bot.sendMediaGroup(grandmaChatId, formatMedia(submission), {
+        disable_notification: true,
+      })
+      await bot.sendMessage(
+        grandmaChatId,
+        `New Gingerbread Competition submission 🎊\n\n${formatCaption(
+          submission
+        )}`
+      )
+
       return {
         message: 'Got it! 🎉 Feel free to add another submission 🙌',
       }
@@ -206,7 +217,7 @@ export const processMessage = async (
     )
   if (recognisedCommand) {
     const [command, handler] = recognisedCommand
-    const reply = await handler.reply(telegramUserId, message, metadata)
+    const reply = await handler.reply(telegramUserId, bot, message, metadata)
 
     if (reply.media) {
       await bot.sendMediaGroup(message.chat.id, reply.media, {
@@ -256,7 +267,12 @@ export const processMessage = async (
       return
     }
 
-    const reply = await handler.nextReply(telegramUserId, message, metadata)
+    const reply = await handler.nextReply(
+      telegramUserId,
+      bot,
+      message,
+      metadata
+    )
     await bot.sendMessage(message.chat.id, reply.message, {
       ...defaultMessageOptions,
       ...(reply.messageOptions ?? {}),
