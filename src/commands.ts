@@ -159,7 +159,8 @@ const handlers: Record<Command, Handler> = {
         grandmaChatId,
         `New Gingerbread Competition submission 🎊\n\n${formatCaption(
           submission
-        )}`
+        )}`,
+        {parse_mode: 'Markdown'}
       )
 
       return {
