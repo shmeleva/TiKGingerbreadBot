@@ -7,16 +7,16 @@ import {processMessage} from './commands'
 require('dotenv').config()
 
 const port = process.env.PORT || 3000
+const mongoUsername = process.env.MONGO_INITDB_ROOT_USERNAME
+const mongoPassword = process.env.MONGO_INITDB_ROOT_PASSWORD
+const mongoUrl = process.env.MONGO_URL
+const botPublicUrl = process.env.BOT_PUBLIC_URL
 const botApiToken = process.env.BOT_API_TOKEN
 
 mongoose.connect(
-  'mongodb://username:password@localhost/test?authSource=admin',
+  `mongodb://${mongoUsername}:${mongoPassword}@${mongoUrl}/gingerbread_bot?authSource=admin`,
   {
     useNewUrlParser: true,
-    auth: {
-      user: 'username',
-      password: 'password',
-    },
   },
   e =>
     e
@@ -25,6 +25,7 @@ mongoose.connect(
 )
 
 const bot = new TelegramBot(botApiToken)
+bot.setWebHook(`${botPublicUrl}/bot`)
 bot.on('message', (message, metadata) => processMessage(bot, message, metadata))
 
 const app = express()
@@ -36,5 +37,4 @@ app.post('/bot', (req, res) => {
   res.sendStatus(200)
 })
 
-// eslint-disable-next-line no-console
 app.listen(port, () => console.log(`Server is listening on ${port}`))
