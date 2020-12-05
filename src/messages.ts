@@ -1,0 +1,22 @@
+import {ISubmission} from './models'
+
+const formatCaptionLine = (text: string | undefined, tag: '**' | '__') => {
+  return (text && `${tag}${text}${tag}\n`) || ''
+}
+
+export const formatCaption = (submission: Omit<ISubmission, 'date'>) => {
+  const name = formatCaptionLine(submission.name, '**')
+  const description = formatCaptionLine(submission.description, '__')
+  return `${name}${description}`
+}
+
+export const formatErrorMessage = (submission: Omit<ISubmission, 'date'>) => {
+  const {name, media} = submission
+  const errors = [
+    !name && 'give your creation a name 🍪',
+    !media.length && 'add some pictures 🖼️',
+  ]
+    .filter(e => e)
+    .join(' and ')
+  return errors.length ? `Please, ${errors}` : undefined
+}

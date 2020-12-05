@@ -12,7 +12,9 @@ import {
   getCurrentSubmission,
   updatePreviousCommand,
   insertMedia,
+  insertSubmission,
 } from './queues'
+import {formatErrorMessage, formatCaption} from './messages'
 
 export type Command =
   | 'editName'
@@ -113,45 +115,45 @@ const handlers: Record<Command, Handler> = {
   },
   reviewAndSubmit: {
     reply: async telegramId => {
-      // TODO: Send the review also and validate the fields.
       const submission = await getCurrentSubmission(telegramId)
 
-      const name = (submission.name && `**${submission.name}**\n`) || ''
-      const description =
-        (submission.description && `__${submission.description}__\n`) || ''
+      const caption = formatCaption(submission)
       const media = submission.media.length
         ? submission.media.map(m => ({
             type: m.mediaType,
             media: m.telegramId,
           }))
         : undefined
+      const error = formatErrorMessage(submission)
 
-      const errors = [
-        !name && 'give your creation a name 🍪',
-        !media && 'add some pictures 🖼️',
-      ]
-        .filter(e => e)
-        .join(' and ')
-      const errorText = errors.length ? `Please, ${errors}` : undefined
-
-      return errorText
+      return error
         ? {
             media,
-            message: `${name}${description}\n${errorText}`,
+            message: `${caption}\n${error}`,
           }
         : {
             media,
-            message: `${name}${description}\nIf you like how it looks, go on and press Submit ✅ We will also repost this to the Grandma Chat 🤶🎅🍪`,
+            message: `${caption}\nIf you like how it looks, go on and press Submit ✅ We will also repost this to the Grandma Chat 🤶🎅🍪`,
             messageOptions: toMessageOptions([['back', 'submit']]),
           }
     },
   },
   submit: {
     after: 'reviewAndSubmit',
-    reply: async () => ({
-      // TODO: Validate the fields, mark the submission date, and repost.
-      message: 'Got it! 🎉 Feel free to add another submission 🙌',
-    }),
+    reply: async telegramId => {
+      const submission = await getCurrentSubmission(telegramId)
+      const error = formatErrorMessage(submission)
+      if (error) {
+        return {
+          message: error,
+        }
+      }
+      // TODO also post to the chat
+      await insertSubmission(telegramId, {...submission, date: new Date()})
+      return {
+        message: 'Got it! 🎉 Feel free to add another submission 🙌',
+      }
+    },
   },
   back: {
     after: 'reviewAndSubmit',
@@ -160,10 +162,17 @@ const handlers: Record<Command, Handler> = {
     }),
   },
   listSubmissions: {
-    reply: async () => ({
-      // TODO: Fetch all the submissions.
-      message: "You didn't send anything yet 🥺",
-    }),
+    reply: async telegramId => {
+      const user = await findOrCreateUser(telegramId)
+      if (!user?.submissions?.length) {
+        return {
+          message: "You didn't send anything yet 🥺",
+        }
+      }
+      return {
+        message: `${user.submissions.map(s => formatCaption(s)).join('\n')}`,
+      }
+    },
   },
 }
 
