@@ -1,33 +1,68 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, {Schema, Document} from 'mongoose'
 
-export interface ISubmission extends Document {
-  name?: string,
-  description?: string,
-  images: string[],
-  latestCommand?: string,
-  submittedAt?: Date,
+export interface IPhoto {
+  telegramId: string
+  telegramMediaGroupId?: string
+  mediaType: 'photo' | 'video'
+  date: Date
+}
+
+export interface ISubmissionBase {
+  name?: string
+  description?: string
+  media: IPhoto[]
+}
+
+export interface ISubmissionDraft extends ISubmissionBase {
+  mediaDate?: Date
+  previousCommand?: string
+}
+
+export interface ISubmission extends ISubmissionBase {
+  date: Date
 }
 
 export interface IUser extends Document {
-  telegramId: string,
-  telegramUsername: string,
-  firstName?: string,
-  lastName?: string,
+  telegramId: number
+  telegramUsername?: string
+  firstName?: string
+  draft: ISubmissionDraft
   submissions: ISubmission[]
 }
 
-export const UserSchema: Schema = new Schema({
-  telegramId: { type: String, required: true, unique: true },
-  telegramUsername: { type: String, required: true },
-  firstName: { type: String },
-  lastName: { type: String },
-  submissions: [{
-    name: { type: String },
-    description: { type: String },
-    images: [{ type: String }],
-    latestCommand: { type: String },
-    submittedAt: { type: Date },
-  }],
-});
+const UserSchema: Schema = new Schema({
+  telegramId: {type: Number, required: true, unique: true},
+  telegramUsername: {type: String},
+  firstName: {type: String},
+  draft: {
+    name: {type: String},
+    description: {type: String},
+    mediaDate: {type: Date},
+    media: [
+      {
+        telegramId: {type: String, required: true},
+        telegramMediaGroupId: {type: String},
+        mediaType: {type: String, required: true},
+        date: {type: Date, required: true},
+      },
+    ],
+    previousCommand: {type: String},
+  },
+  submissions: [
+    {
+      name: {type: String, required: true},
+      description: {type: String},
+      media: [
+        {
+          telegramId: {type: String, required: true},
+          telegramMediaGroupId: {type: String},
+          mediaType: {type: String, required: true},
+          date: {type: Date},
+        },
+      ],
+      date: {type: Date, required: true},
+    },
+  ],
+})
 
-export default mongoose.model<IUser>('User', UserSchema);
+export default mongoose.model<IUser>('User', UserSchema)
