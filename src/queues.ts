@@ -1,4 +1,4 @@
-import User, {IUser, IPhoto, ISubmission} from './models'
+import {User, IUser, IPhoto, ISubmissionBase, Competition} from './models'
 
 export const findOrCreateUser = async (
   telegramId: number,
@@ -48,7 +48,7 @@ export const insertMedia = async (telegramId: number, media: IPhoto) => {
 
 export const getCurrentSubmission = async (
   telegramId: number
-): Promise<Omit<ISubmission, 'date'>> => {
+): Promise<ISubmissionBase> => {
   const user = await User.findOne({telegramId})
   if (!user) {
     return undefined
@@ -64,9 +64,19 @@ export const getCurrentSubmission = async (
 
 export const insertSubmission = async (
   telegramId: number,
-  submission: ISubmission
+  submissionData: ISubmissionBase
 ) => {
-  await User.updateOne(
+  const competition = await Competition.findOneAndUpdate(
+    {},
+    {$inc: {seq: 1}},
+    {upsert: true, new: true, setDefaultsOnInsert: true}
+  )
+  const submission = {
+    ...submissionData,
+    date: new Date(),
+    seq: competition.seq,
+  }
+  const user = await User.findOneAndUpdate(
     {telegramId},
     {
       $set: {
@@ -75,6 +85,8 @@ export const insertSubmission = async (
       $push: {
         submissions: submission,
       },
-    }
+    },
+    {new: true}
   )
+  return {user, submission}
 }

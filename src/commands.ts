@@ -37,7 +37,7 @@ type Handler = {
     metadata: Metadata
   ) => Promise<{
     media?: InputMedia[]
-    message: string
+    message?: string
     messageOptions?: SendMessageOptions
   }>
   nextMessageType?: string[]
@@ -122,19 +122,21 @@ const handlers: Record<Command, Handler> = {
   reviewAndSubmit: {
     reply: async telegramId => {
       const submission = await getCurrentSubmission(telegramId)
-
       const caption = formatCaption(submission)
-      const media = formatMedia(submission)
       const error = formatErrorMessage(submission)
 
       return error
-        ? {
-            media,
-            message: `${caption}\n${error}`,
-          }
+        ? submission.media.length
+          ? {
+              media: formatMedia(submission, `${caption}\n${error}`),
+            }
+          : {
+              message: `${caption}\n${error}`,
+            }
         : {
-            media,
-            message: `${caption}\nIf you like how it looks, go on and press Submit ✅ We will also repost this to the Grandma Chat 🤶🎅🍪`,
+            media: formatMedia(submission, `${caption}`),
+            message:
+              'If you like how it looks, go on and press Submit ✅ We will also repost this to the Grandma Chat 🤶🎅🍪',
             messageOptions: toMessageOptions([['back', 'submit']]),
           }
     },
@@ -142,25 +144,26 @@ const handlers: Record<Command, Handler> = {
   submit: {
     after: 'reviewAndSubmit',
     reply: async (telegramId, bot) => {
-      const submission = await getCurrentSubmission(telegramId)
-      const error = formatErrorMessage(submission)
+      const submissionData = await getCurrentSubmission(telegramId)
+      const error = formatErrorMessage(submissionData)
       if (error) {
         return {
           message: error,
         }
       }
 
-      await insertSubmission(telegramId, {...submission, date: new Date()})
+      const {user, submission} = await insertSubmission(
+        telegramId,
+        submissionData
+      )
 
-      await bot.sendMediaGroup(grandmaChatId, formatMedia(submission), {
-        disable_notification: true,
-      })
-      await bot.sendMessage(
+      const caption = formatCaption(submissionData, user)
+      await bot.sendMediaGroup(
         grandmaChatId,
-        `New Gingerbread Competition submission 🎊\n\n${formatCaption(
-          submission
-        )}`,
-        {parse_mode: 'Markdown'}
+        formatMedia(
+          submissionData,
+          `🎊 #GingerbreadCompetition2020 Submission #${submission.seq}\n\n${caption}`
+        )
       )
 
       return {
@@ -221,14 +224,14 @@ export const processMessage = async (
     const reply = await handler.reply(telegramUserId, bot, message, metadata)
 
     if (reply.media) {
-      await bot.sendMediaGroup(message.chat.id, reply.media, {
-        disable_notification: true,
+      await bot.sendMediaGroup(message.chat.id, reply.media)
+    }
+    if (reply.message) {
+      await bot.sendMessage(message.chat.id, reply.message, {
+        ...defaultMessageOptions,
+        ...(reply.messageOptions ?? {}),
       })
     }
-    await bot.sendMessage(message.chat.id, reply.message, {
-      ...defaultMessageOptions,
-      ...(reply.messageOptions ?? {}),
-    })
     await updatePreviousCommand(telegramUserId, command)
 
     return
@@ -259,12 +262,13 @@ export const processMessage = async (
     ([c, h]) => c === previousCommand && h.nextReply
   )
   if (recognisedLatestCommand) {
-    const [, handler] = recognisedLatestCommand
+    const [command, handler] = recognisedLatestCommand
 
     if (
       handler.nextMessageType &&
       !handler.nextMessageType.includes(metadata.type)
     ) {
+      await updatePreviousCommand(telegramUserId, command)
       return
     }
 

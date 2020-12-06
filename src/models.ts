@@ -20,21 +20,35 @@ export interface ISubmissionDraft extends ISubmissionBase {
 
 export interface ISubmission extends ISubmissionBase {
   date: Date
+  seq: number
 }
 
 export interface IUser extends Document {
   telegramId: number
   telegramUsername?: string
-  telegramChatId?: number
+  telegramChatId: number
   firstName?: string
   draft: ISubmissionDraft
   submissions: ISubmission[]
 }
 
+export interface ICompetition extends Document {
+  seq: number
+}
+
+const CompetitionSchema: Schema = new Schema({
+  seq: {type: Number, default: 0},
+})
+
+export const Competition = mongoose.model<ICompetition>(
+  'Competition',
+  CompetitionSchema
+)
+
 const UserSchema: Schema = new Schema({
   telegramId: {type: Number, required: true, unique: true},
   telegramUsername: {type: String},
-  telegramChatId: {type: Number},
+  telegramChatId: {type: Number, required: true},
   firstName: {type: String},
   draft: {
     name: {type: String},
@@ -59,12 +73,13 @@ const UserSchema: Schema = new Schema({
           telegramId: {type: String, required: true},
           telegramMediaGroupId: {type: String},
           mediaType: {type: String, required: true},
-          date: {type: Date},
+          date: {type: Date, required: true},
         },
       ],
       date: {type: Date, required: true},
+      seq: {type: Number, required: true},
     },
   ],
 })
 
-export default mongoose.model<IUser>('User', UserSchema)
+export const User = mongoose.model<IUser>('User', UserSchema)
