@@ -15,7 +15,6 @@ export interface ISubmissionBase {
 
 export interface ISubmissionDraft extends ISubmissionBase {
   mediaDate?: Date
-  previousCommand?: string
 }
 
 export interface ISubmission extends ISubmissionBase {
@@ -28,7 +27,8 @@ export interface IUser extends Document {
   telegramUsername?: string
   telegramChatId: number
   firstName?: string
-  draft: ISubmissionDraft
+  previousCommand?: string
+  draft?: ISubmissionDraft
   submissions: ISubmission[]
 }
 
@@ -50,6 +50,7 @@ const UserSchema: Schema = new Schema({
   telegramUsername: {type: String},
   telegramChatId: {type: Number, required: true},
   firstName: {type: String},
+  previousCommand: {type: String},
   draft: {
     name: {type: String},
     description: {type: String},
@@ -62,7 +63,6 @@ const UserSchema: Schema = new Schema({
         date: {type: Date, required: true},
       },
     ],
-    previousCommand: {type: String},
   },
   submissions: [
     {

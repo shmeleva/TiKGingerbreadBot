@@ -1,5 +1,8 @@
 import {User, IUser, IPhoto, ISubmissionBase, Competition} from './models'
 
+export const findUser = async (telegramId: number): Promise<IUser> =>
+  User.findOne({telegramId})
+
 export const findOrCreateUser = async (
   telegramId: number,
   telegramUsername?: string,
@@ -11,9 +14,21 @@ export const findOrCreateUser = async (
       telegramId,
       telegramUsername,
       telegramChatId,
-      draft: {media: []},
       submissions: [],
     }))
+  return user
+}
+
+export const createDraft = async (telegramId: number): Promise<IUser> => {
+  const user = await User.findOneAndUpdate(
+    {telegramId},
+    {
+      $set: {
+        draft: {media: []},
+      },
+    },
+    {new: true}
+  )
   return user
 }
 
@@ -39,14 +54,14 @@ export const updatePreviousCommand = async (
   telegramId: number,
   command: string
 ) => {
-  await User.updateOne({telegramId}, {$set: {'draft.previousCommand': command}})
+  await User.updateOne({telegramId}, {$set: {previousCommand: command}})
 }
 
 export const insertMedia = async (telegramId: number, media: IPhoto) => {
   await User.updateOne({telegramId}, {$push: {'draft.media': media}})
 }
 
-export const getCurrentSubmission = async (
+export const getDraft = async (
   telegramId: number
 ): Promise<ISubmissionBase> => {
   const user = await User.findOne({telegramId})
@@ -80,7 +95,7 @@ export const insertSubmission = async (
     {telegramId},
     {
       $set: {
-        draft: {media: []},
+        draft: undefined,
       },
       $push: {
         submissions: submission,

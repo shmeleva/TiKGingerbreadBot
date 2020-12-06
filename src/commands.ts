@@ -9,10 +9,12 @@ import {
   updateDraftName,
   updateDraftDescription,
   updateDraftMediaDate,
-  getCurrentSubmission,
+  getDraft,
   updatePreviousCommand,
   insertMedia,
   insertSubmission,
+  createDraft,
+  findUser,
 } from './queues'
 import {formatErrorMessage, formatCaption, formatMedia} from './messages'
 
@@ -20,6 +22,7 @@ require('dotenv').config()
 const grandmaChatId = `@${process.env.GRANDMA_CHAT_ID}`
 
 export type Command =
+  | 'newSubmission'
   | 'editName'
   | 'editDescription'
   | 'uploadPictures'
@@ -56,6 +59,7 @@ type Handler = {
 }
 
 const buttons: Record<Command, string> = {
+  newSubmission: 'New submission ➕',
   editName: 'Edit name 🖋️',
   editDescription: 'Edit description 🖋️',
   uploadPictures: 'Edit pictures 🖼️',
@@ -74,14 +78,35 @@ const toMessageOptions = (commands: Command[][]): SendMessageOptions => ({
   },
 })
 
-export const defaultMessageOptions = toMessageOptions([
+const startingMessageOptions = toMessageOptions([
+  ['newSubmission'],
+  ['listSubmissions'],
+])
+
+const editingMessageOptions = toMessageOptions([
   ['editName', 'editDescription'],
   ['uploadPictures'],
   ['reviewAndSubmit'],
   ['listSubmissions'],
 ])
 
+const submittingMessageOptions = toMessageOptions([['back', 'submit']])
+
+const defaultMessageOptions = async telegramId => {
+  const user = await findUser(telegramId)
+  return user?.draft?.media ? editingMessageOptions : startingMessageOptions
+}
+
 const handlers: Record<Command, Handler> = {
+  newSubmission: {
+    reply: async telegramId => {
+      await createDraft(telegramId)
+      return {
+        message:
+          'Give your creation a name, tell us a bit more about it, add pictures and share it with the Grandma Club! 🤶🎅🍪',
+      }
+    },
+  },
   editName: {
     reply: async () => ({
       message: 'OK. Send me the new name for your creation 🙌',
@@ -121,7 +146,7 @@ const handlers: Record<Command, Handler> = {
   },
   reviewAndSubmit: {
     reply: async telegramId => {
-      const submission = await getCurrentSubmission(telegramId)
+      const submission = await getDraft(telegramId)
       const caption = formatCaption(submission)
       const error = formatErrorMessage(submission)
 
@@ -137,14 +162,14 @@ const handlers: Record<Command, Handler> = {
             media: formatMedia(submission, `${caption}`),
             message:
               'If you like how it looks, go on and press Submit ✅ We will also repost this to the Grandma Chat 🤶🎅🍪',
-            messageOptions: toMessageOptions([['back', 'submit']]),
+            messageOptions: submittingMessageOptions,
           }
     },
   },
   submit: {
     after: 'reviewAndSubmit',
     reply: async (telegramId, bot) => {
-      const submissionData = await getCurrentSubmission(telegramId)
+      const submissionData = await getDraft(telegramId)
       const error = formatErrorMessage(submissionData)
       if (error) {
         return {
@@ -211,7 +236,7 @@ export const processMessage = async (
     return
   }
 
-  const {previousCommand} = user.draft
+  const {previousCommand} = user
 
   const recognisedCommand =
     metadata.type === 'text' &&
@@ -227,10 +252,11 @@ export const processMessage = async (
       await bot.sendMediaGroup(message.chat.id, reply.media)
     }
     if (reply.message) {
-      await bot.sendMessage(message.chat.id, reply.message, {
-        ...defaultMessageOptions,
-        ...(reply.messageOptions ?? {}),
-      })
+      await bot.sendMessage(
+        message.chat.id,
+        reply.message,
+        reply.messageOptions || (await defaultMessageOptions(telegramUserId))
+      )
     }
     await updatePreviousCommand(telegramUserId, command)
 
@@ -261,7 +287,7 @@ export const processMessage = async (
   const recognisedLatestCommand = Object.entries(handlers).find(
     ([c, h]) => c === previousCommand && h.nextReply
   )
-  if (recognisedLatestCommand) {
+  if (user.draft?.media && recognisedLatestCommand) {
     const [command, handler] = recognisedLatestCommand
 
     if (
@@ -278,19 +304,28 @@ export const processMessage = async (
       message,
       metadata
     )
-    await bot.sendMessage(message.chat.id, reply.message, {
-      ...defaultMessageOptions,
-      ...(reply.messageOptions ?? {}),
-    })
+    await bot.sendMessage(
+      message.chat.id,
+      reply.message,
+      reply.messageOptions || (await defaultMessageOptions(telegramUserId))
+    )
 
     return
   }
 
   if (metadata.type === 'text') {
-    await bot.sendMessage(
-      message.chat.id,
-      'Hi, cookie! 👋 Give your creation a name, tell us a bit more about it, add pictures and share it with the Grandma Club! 🤶🎅🍪',
-      defaultMessageOptions
-    )
+    if (user.draft?.media) {
+      await bot.sendMessage(
+        message.chat.id,
+        'Give your creation a name, tell us a bit more about it, add pictures and share it with the Grandma Club! 🤶🎅🍪',
+        editingMessageOptions
+      )
+    } else {
+      await bot.sendMessage(
+        message.chat.id,
+        'Hi, cookie! 👋 Start by creating a new submission.',
+        startingMessageOptions
+      )
+    }
   }
 }
