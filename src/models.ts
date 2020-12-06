@@ -25,6 +25,7 @@ export interface ISubmission extends ISubmissionBase {
 export interface IUser extends Document {
   telegramId: number
   telegramUsername?: string
+  telegramChatId?: number
   firstName?: string
   draft: ISubmissionDraft
   submissions: ISubmission[]
@@ -33,6 +34,7 @@ export interface IUser extends Document {
 const UserSchema: Schema = new Schema({
   telegramId: {type: Number, required: true, unique: true},
   telegramUsername: {type: String},
+  telegramChatId: {type: Number},
   firstName: {type: String},
   draft: {
     name: {type: String},

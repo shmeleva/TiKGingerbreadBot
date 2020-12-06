@@ -2,13 +2,15 @@ import User, {IUser, IPhoto, ISubmission} from './models'
 
 export const findOrCreateUser = async (
   telegramId: number,
-  telegramUsername?: string
+  telegramUsername?: string,
+  telegramChatId?: number
 ): Promise<IUser> => {
   const user =
     (await User.findOne({telegramId})) ||
     (await User.create({
       telegramId,
       telegramUsername,
+      telegramChatId,
       draft: {media: []},
       submissions: [],
     }))

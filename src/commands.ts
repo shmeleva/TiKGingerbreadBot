@@ -96,7 +96,7 @@ const handlers: Record<Command, Handler> = {
   },
   editDescription: {
     reply: async () => ({
-      message: 'OK. Send me the new description 🙌',
+      message: 'OK. Send me the new description. Keep it short 🙌',
     }),
     nextMessageType: ['text'],
     nextReply: async (telegramId, _, message) => {
@@ -203,7 +203,7 @@ export const processMessage = async (
     return
   }
 
-  const user = await findOrCreateUser(telegramUserId, username)
+  const user = await findOrCreateUser(telegramUserId, username, message.chat.id)
   if (!user) {
     return
   }
