@@ -19,7 +19,7 @@ import {
 import {formatErrorMessage, formatCaption, formatMedia} from './messages'
 
 require('dotenv').config()
-const grandmaChatId = `@${process.env.GRANDMA_CHAT_ID}`
+const chatIds = [process.env.GRANDMA_CHAT_ID, process.env.COMPETITION_CHAT_ID]
 
 export type Command =
   | 'newSubmission'
@@ -182,14 +182,18 @@ const handlers: Record<Command, Handler> = {
         submissionData
       )
 
-      const caption = formatCaption(submissionData, user)
-      await bot.sendMediaGroup(
-        grandmaChatId,
-        formatMedia(
-          submissionData,
-          `🎊 #GingerbreadCompetition2020 Submission #${submission.seq}\n\n${caption}`
-        )
-      )
+      const caption = `🎊 #GingerbreadCompetition2020 Submission #${
+        submission.seq
+      }\n\n${formatCaption(submissionData, user)}`
+      const media = formatMedia(submissionData, caption)
+
+      chatIds.forEach(async chatId => {
+        try {
+          chatId && (await bot.sendMediaGroup(chatId, media))
+        } catch (e) {
+          console.error(e)
+        }
+      })
 
       return {
         message: 'Got it! 🎉 Feel free to add another submission 🙌',
